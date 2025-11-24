@@ -2,7 +2,7 @@
 
 This software provides a high-throughput method for quantifying network and puncta phenotypes in fluorescence microscopy images. The pipeline distinguishes between **Filamentous Networks** (webs/ridges) and **Discrete Puncta** (dots). Originally designed for Mucin analysis, this pipeline is applicable to any stain exhibiting ridge-like or blob-like structures. To account for batch effects and experimental variation, all metrics are normalized against internal Wildtype controls within each trial (reported as "Relative to WT").
 
-## Executive Summary
+## Pipeline Summary
 
 The pipeline executes the following logic:
 1.  **Preprocessing:** Converts Olympus (`.oib`) files to TIFF format (optional) and applies robust normalization.
