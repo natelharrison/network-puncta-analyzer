@@ -1,6 +1,6 @@
 # Network & Puncta Quantification Pipeline
 
-DISCLAIMER: Some parts of this pipeline, such as mutant and wildtype distinction, are hardcoded for it's repective project. With some minor tweaks in values, the puncta and network detection scripts may return the ridge and puncta binaries, but full analysis wont work unless mutants and wildtypes unless their file names contain 'v1' or 'v2' for mutants and 'rosa' or 'BL6' for wildtypes. I plan on eventually making the entire pipeline more universal.
+DISCLAIMER: Some parts of this pipeline, such as mutant and wildtype distinction, are hardcoded for it's repective project. With some minor tweaks in values, the puncta and network detection scripts may return the ridge and puncta binaries, but full analysis wont work unless the file names contain 'v1' or 'v2' for mutants and 'rosa' or 'BL6' for wildtypes. I plan on eventually making the entire pipeline more universal.
 
 This software provides a high-throughput method for quantifying network and puncta phenotypes in fluorescence microscopy images. The pipeline distinguishes between **Filamentous Networks** (webs/ridges) and **Discrete Puncta** (dots). Originally designed for Mucin analysis, this pipeline is applicable to any stain exhibiting ridge-like or blob-like structures. To account for batch effects and experimental variation, all metrics are normalized against internal Wildtype controls within each trial (reported as "Relative to WT").
 
