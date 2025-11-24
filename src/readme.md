@@ -1,6 +1,6 @@
-# Mucin Quantification Pipeline
+# Network & Puncta Quantification Pipeline
 
-This software provides a high-throughput method for quantifying mucin phenotypes in fluorescence microscopy images. The pipeline distinguishes between **Filamentous Networks** (webs/ridges) and **Discrete Puncta** (dots). To account for batch effects and experimental variation, all metrics are normalized against internal Wildtype controls within each trial (reported as "Relative to WT").
+This software provides a high-throughput method for quantifying network and puncta phenotypes in fluorescence microscopy images. The pipeline distinguishes between **Filamentous Networks** (webs/ridges) and **Discrete Puncta** (dots). Originally designed for Mucin analysis, this pipeline is applicable to any stain exhibiting ridge-like or blob-like structures. To account for batch effects and experimental variation, all metrics are normalized against internal Wildtype controls within each trial (reported as "Relative to WT").
 
 ## Executive Summary
 
@@ -104,7 +104,7 @@ python src/convert_oibs.py "E:\Mic\Project_Name"
 
 ### Step 2: Segmentation (Manual)
 Generate masks to exclude background noise.
-1.  Launch Napari: `napari` in miniforge terminal with environment open
+1.  Launch Napari: `napari` in miniforge terminal with environment open.
 2.  Load the `chan1` folder.
 3.  Use the **Micro-SAM** plugin (Batch Segment) to annotate tissue.
 4.  **Save Output:** Ensure masks are saved in a folder named `chan1_masks` at the same level as `chan1`. File names must match exactly.
