@@ -79,7 +79,7 @@ def create_montage(trial_name, image_paths, output_path):
     if muts: plot_group(muts, '#E63946')
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150)
+    plt.savefig(output_path, dpi=600)
     plt.close(fig)
 
 

@@ -9,13 +9,13 @@ import pipeline_utils
 
 # --- CONFIGURATION ---
 # Steger's Algorithm Parameters
-RIDGE_WIDTHS = [1, 2, 3]  # Range of line widths to detect (in pixels)
-RIDGE_CONTRAST_LOW = 15  # Lower threshold for hysteresis
-RIDGE_CONTRAST_HIGH = 75  # Upper threshold for hysteresis
+RIDGE_WIDTHS = [1, 2, 3, 4]  # Range of line widths to detect (in pixels)
+RIDGE_CONTRAST_LOW = 30  # Lower threshold for hysteresis
+RIDGE_CONTRAST_HIGH = 120  # Upper threshold for hysteresis
 
 # Reconstruction Limits
-MAX_FILAMENT_THICKNESS = 5  # Cap to prevent artifacts from becoming blobs
-MIN_FILAMENT_THICKNESS = 1  # Minimum visibility
+MAX_FILAMENT_THICKNESS = 2  # Cap to prevent artifacts from becoming blobs
+MIN_FILAMENT_THICKNESS = 2  # Minimum visibility
 WIDTH_SCALE_FACTOR = 1  # Multiplier if we want to thin the lines (1.0 = true width)
 
 
@@ -48,6 +48,7 @@ def draw_ridges(detector, shape):
             # Apply scaling and clamping
             calculated_thickness = round(avg_raw_width * WIDTH_SCALE_FACTOR)
             thickness = int(np.clip(calculated_thickness, MIN_FILAMENT_THICKNESS, MAX_FILAMENT_THICKNESS))
+            thickness = 1
 
         # Draw the line segment
         pts = np.stack([contour.col, contour.row], axis=1).astype(np.int32)
@@ -65,7 +66,12 @@ def analyze_networks(image, mask):
         line_widths=RIDGE_WIDTHS,
         low_contrast=RIDGE_CONTRAST_LOW,
         high_contrast=RIDGE_CONTRAST_HIGH,
-        estimate_width=True
+        min_len=5,  # Ignore ridges shorter than this length
+        max_len=0,  # Ignore ridges longer than this length, set to 0 for no limit
+        dark_line=False,  # Set to True if detecting black ridges in white background, False otherwise
+        estimate_width=True,  # Estimate width for each detected ridge point
+        extend_line=True,  # Tend to preserve ridges near junctions if set to True
+        correct_pos=False,  # Correct ridge positions with asymmetric widths if set to True
     )
     det.detect_lines(im_8bit)
 
@@ -96,7 +102,7 @@ def analyze_networks(image, mask):
     stats = pd.DataFrame({
         'total_ridge_pixels': [total_pixels],
         'structure_index': [structure_index],
-        'object_count': [len(props)],
+        'object_count': [len(np.unique(mask)) - 1],
         'tissue_area': [tissue_area]
     })
 
