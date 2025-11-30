@@ -10,13 +10,13 @@ import pipeline_utils
 # --- CONFIGURATION ---
 # Steger's Algorithm Parameters
 RIDGE_WIDTHS = [1, 2, 3, 4]  # Range of line widths to detect (in pixels)
-RIDGE_CONTRAST_LOW = 30  # Lower threshold for hysteresis
-RIDGE_CONTRAST_HIGH = 120  # Upper threshold for hysteresis
+RIDGE_CONTRAST_LOW =1  # Lower threshold for hysteresis
+RIDGE_CONTRAST_HIGH = 25  # Upper threshold for hysteresis
 
 # Reconstruction Limits
-MAX_FILAMENT_THICKNESS = 2  # Cap to prevent artifacts from becoming blobs
-MIN_FILAMENT_THICKNESS = 2  # Minimum visibility
-WIDTH_SCALE_FACTOR = 1  # Multiplier if we want to thin the lines (1.0 = true width)
+MAX_FILAMENT_THICKNESS = 3  # Cap to prevent artifacts from becoming blobs
+MIN_FILAMENT_THICKNESS = 1  # Minimum visibility
+WIDTH_SCALE_FACTOR = .5  # Multiplier if we want to thin the lines (1.0 = true width)
 
 
 def normalize_to_8bit(image):
@@ -48,7 +48,6 @@ def draw_ridges(detector, shape):
             # Apply scaling and clamping
             calculated_thickness = round(avg_raw_width * WIDTH_SCALE_FACTOR)
             thickness = int(np.clip(calculated_thickness, MIN_FILAMENT_THICKNESS, MAX_FILAMENT_THICKNESS))
-            thickness = 1
 
         # Draw the line segment
         pts = np.stack([contour.col, contour.row], axis=1).astype(np.int32)

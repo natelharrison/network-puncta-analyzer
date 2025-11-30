@@ -88,28 +88,31 @@ E:\...\Project_Name\
 
 ## Installation
 
-### 1. Python Environment (Miniforge)
+### 1. Set Up Miniforge
 We recommend **Miniforge** for package management.
-1.  Download and install [Miniforge3](https://github.com/conda-forge/miniforge#miniforge3).
-2.  Open your terminal (or Miniforge Prompt on Windows).
+1.  Download the [Miniforge3 installer](https://github.com/conda-forge/miniforge#miniforge3) for your OS.
+2.  Run the installer (double-click on Windows, or `bash Miniforge3-*.sh` on macOS/Linux) and finish the prompts.
+3.  Launch the **Miniforge Prompt/terminal**.
+
+### 2. Create the Base Environment (conda + pip)
+`environment.yml` includes the base stack (Napari, PyQt5, ridge-detector via pip, etc.). Create and activate it:
 
 ```bash
-# Create environment
-conda create -n mucin_env python=3.9
+conda env create -f environment.yml
 conda activate mucin_env
-
-# Install dependencies
-pip install -r requirements.txt
 ```
 
-### 2. GPU Support (Required for Micro-SAM)
-To run the segmentation tools efficiently, install the PyTorch version compatible with your hardware.
-
-* **Windows/Linux (NVIDIA GPU):**
+### 3. Optional: Micro-SAM
+Needed in order to create segmentation masks for the network objects
+* **Micro-SAM:**
     ```bash
-    pip3 install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu118](https://download.pytorch.org/whl/cu118)
+    conda install -c conda-forge micro_sam=0.3.0
     ```
-* **MacOS (M1/M2):** Standard installation.
+* **NVIDIA GPU (CUDA 11.8):**
+    ```bash
+    conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+    ```
+
 
 ---
 

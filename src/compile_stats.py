@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
 from tqdm import tqdm
 import pipeline_utils
+import traceback
 
 
 def get_genotype(filename):
@@ -187,6 +188,25 @@ def make_nice_plots(net_df, puncta_df, output_dir):
     print(f"[✓] Plots Saved.")
 
 
+def save_network_montages(data_dir: Path):
+    """Create per-trial network QC montages from saved overlays."""
+    print(f"\n--- Generating Network Montages ---")
+    for trial_dir in sorted([p for p in data_dir.iterdir() if p.is_dir()]):
+        overlay_dir = trial_dir / "analysis_results" / "network_overlay"
+        if not overlay_dir.exists(): continue
+
+        images = sorted(overlay_dir.glob("*.tif"))
+        if not images: continue
+
+        output_path = overlay_dir.parent / "Montage_Network.png"
+        try:
+            pipeline_utils.create_montage(trial_dir.name, images, output_path)
+            print(f"[✓] {trial_dir.name}: {output_path.name}")
+        except Exception:
+            print(f"[!] Failed montage for {trial_dir.name}")
+            traceback.print_exc()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("data_dir", type=Path)
@@ -222,6 +242,7 @@ def main():
         cols_to_save = [c for c in puncta_df.columns if 'Unnamed' not in c]
         puncta_df[cols_to_save].to_csv(args.data_dir / "DATA_Puncta_Combined.csv", index=False)
 
+    save_network_montages(args.data_dir)
     make_nice_plots(net_df, puncta_df, args.data_dir)
 
 
