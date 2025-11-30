@@ -106,7 +106,7 @@ conda activate mucin_env
 Needed in order to create segmentation masks for the network objects
 * **Micro-SAM:**
     ```bash
-    conda install -c conda-forge micro_sam=0.3.0
+    conda install -c conda-forge micro_sam
     ```
 * **NVIDIA GPU (CUDA 11.8):**
     ```bash
