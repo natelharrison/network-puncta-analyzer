@@ -3,24 +3,21 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
-from skimage import feature, morphology, filters
+from skimage import feature
 import pipeline_utils
 
 # --- CONFIGURATION (Consistent Winner Settings) ---
-# Optimization: Median Filter 1, Global Norm, Strict Threshold
-LOG_MIN_SIGMA = 1  # Min blob size
-LOG_MAX_SIGMA = 2  # Max blob size (Increased from 2)
-LOG_NUM_SIGMA = 4  # Steps (Increased for better sizing)
+# Optimization: Global Norm, Strict Threshold
+LOG_MIN_SIGMA = 1.5  # Min blob size
+LOG_MAX_SIGMA = 3  # Max blob size (Increased from 2)
+LOG_NUM_SIGMA = 5  # Steps (Increased for better sizing)
 LOG_THRESHOLD = 0.03  # Threshold (Stricter: 0.02 vs 0.002)
-LOG_OVERLAP = 0.9  # Allowed overlap fraction
-MEDIAN_RADIUS = 1  # Preprocessing kernel size
+LOG_OVERLAP = 0.95  # Allowed overlap fraction (tuned)
 
 
 def analyze_puncta(image, mask):
-    # 1. Preprocessing
-    image_filtered = filters.median(image, morphology.disk(MEDIAN_RADIUS))
-
-    img_float = image_filtered.astype(float)
+    # 1. Normalize to float32 for stable LoG detection
+    img_float = image.astype(np.float32, copy=False)
     if img_float.max() > 0:
         img_norm = img_float / img_float.max()
     else:

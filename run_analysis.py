@@ -6,14 +6,14 @@ from pathlib import Path
 
 def validate_inputs(data_dir: Path) -> bool:
     print(f"--- Checking inputs in: {data_dir} ---")
-    images = list(data_dir.rglob("chan1/*.tif"))
-    masks = list(data_dir.rglob("chan1_masks/*.tif"))
+    images = list(data_dir.rglob("MIPs/chan1/*.tif"))
+    masks = list(data_dir.rglob("MIPs/chan1_masks/*.tif"))
 
     if not images or not masks:
         print("[!] ERROR: Missing images or masks.")
         return False
 
-    print(f"[✓] Found {len(images)} images and {len(masks)} masks.")
+    print(f"[+] Found {len(images)} images and {len(masks)} masks.")
     return True
 
 
@@ -41,7 +41,7 @@ def main():
     run_step("network_detector.py", [path_str, "--cores", args.cores])
     run_step("compile_stats.py", [path_str])  # Now includes montage generation
 
-    print(f"\n[✓] Pipeline Complete.")
+    print(f"\n[+] Pipeline Complete.")
 
 
 if __name__ == "__main__":

@@ -114,7 +114,7 @@ def _worker(args):
 
 def build_tasks(parent_dir):
     tasks = []
-    for img in parent_dir.rglob("chan1/*.tif"):
+    for img in parent_dir.rglob("MIPs/chan1/*.tif"):
         mask = img.parent.parent / "chan1_masks" / img.name
         if mask.exists():
             tasks.append((img, mask))

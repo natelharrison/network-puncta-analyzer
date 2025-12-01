@@ -10,8 +10,8 @@ import pipeline_utils
 # --- CONFIGURATION ---
 # Steger's Algorithm Parameters
 RIDGE_WIDTHS = [1, 2, 3, 4]  # Range of line widths to detect (in pixels)
-RIDGE_CONTRAST_LOW =1  # Lower threshold for hysteresis
-RIDGE_CONTRAST_HIGH = 25  # Upper threshold for hysteresis
+RIDGE_CONTRAST_LOW =20  # Lower threshold for hysteresis
+RIDGE_CONTRAST_HIGH = 60  # Upper threshold for hysteresis
 
 # Reconstruction Limits
 MAX_FILAMENT_THICKNESS = 3  # Cap to prevent artifacts from becoming blobs
@@ -65,11 +65,11 @@ def analyze_networks(image, mask):
         line_widths=RIDGE_WIDTHS,
         low_contrast=RIDGE_CONTRAST_LOW,
         high_contrast=RIDGE_CONTRAST_HIGH,
-        min_len=5,  # Ignore ridges shorter than this length
+        min_len=1,  # Ignore ridges shorter than this length
         max_len=0,  # Ignore ridges longer than this length, set to 0 for no limit
         dark_line=False,  # Set to True if detecting black ridges in white background, False otherwise
         estimate_width=True,  # Estimate width for each detected ridge point
-        extend_line=True,  # Tend to preserve ridges near junctions if set to True
+        extend_line=False,  # Tend to preserve ridges near junctions if set to True
         correct_pos=False,  # Correct ridge positions with asymmetric widths if set to True
     )
     det.detect_lines(im_8bit)

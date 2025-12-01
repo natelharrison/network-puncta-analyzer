@@ -15,8 +15,8 @@ def convert_single_oib(image_path: Path):
     for i, chan in enumerate(image[:2]):
         chan_name = f"chan{i}"
 
-        # OUTPUT: Trial_Folder / max_z_projections / chanX / Image.tif
-        save_dir = image_path.parent / 'max_z_projections' / chan_name
+        # OUTPUT: Trial_Folder / MIPs / chanX / Image.tif
+        save_dir = image_path.parent / 'MIPs' / chan_name
         save_dir.mkdir(parents=True, exist_ok=True)
 
         save_path = save_dir / f'MAX_{chan_name}_{image_path.stem}.tif'
