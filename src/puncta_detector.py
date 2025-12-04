@@ -6,13 +6,13 @@ from scipy.spatial import cKDTree
 from skimage import feature
 import pipeline_utils
 
-# --- CONFIGURATION (Consistent Winner Settings) ---
-# Optimization: Global Norm, Strict Threshold
+# --- CONFIGURATION ---
 LOG_MIN_SIGMA = 1.5  # Min blob size
-LOG_MAX_SIGMA = 3  # Max blob size (Increased from 2)
+LOG_MAX_SIGMA = 2.5  # Max blob size (Increased from 2)
 LOG_NUM_SIGMA = 5  # Steps (Increased for better sizing)
-LOG_THRESHOLD = 0.03  # Threshold (Stricter: 0.02 vs 0.002)
-LOG_OVERLAP = 0.95  # Allowed overlap fraction (tuned)
+LOG_THRESHOLD = 0.025  # Threshold (Stricter: 0.02 vs 0.002)
+LOG_OVERLAP = 1  # Allowed overlap fraction (tuned)
+EDGE_MARGIN = 5  # Pixels to ignore near image borders to prevent edge artifacts
 
 
 def analyze_puncta(image, mask):
@@ -36,6 +36,19 @@ def analyze_puncta(image, mask):
 
     # 3. Filter by Mask
     if len(blobs) > 0:
+        ys = blobs[:, 0]
+        xs = blobs[:, 1]
+        sigmas = blobs[:, 2]
+
+        # Drop detections whose extent (approx radius ~ sqrt(2)*sigma) touches borders
+        H_img, W_img = img_norm.shape
+        radii = np.sqrt(2) * sigmas
+        inside_y = (ys - radii >= EDGE_MARGIN) & (ys + radii < H_img - EDGE_MARGIN)
+        inside_x = (xs - radii >= EDGE_MARGIN) & (xs + radii < W_img - EDGE_MARGIN)
+        keep = inside_y & inside_x
+        blobs = blobs[keep]
+
+        # Convert to ints after filtering
         ys = blobs[:, 0].astype(int)
         xs = blobs[:, 1].astype(int)
 
@@ -64,9 +77,7 @@ def analyze_puncta(image, mask):
         'search_area': [bg_area]
     })
 
-    # 5. Generate Label Mask (FIXED)
-    # Instead of creating a binary mask and labeling it (which merges neighbors),
-    # we directly assign a unique ID (1, 2, 3...) to each detected coordinate.
+    # 5. Generate Label Mask
     puncta_labels = np.zeros_like(image, dtype=np.uint16)
 
     if count > 0:
@@ -80,10 +91,6 @@ def analyze_puncta(image, mask):
         # If duplicates exist due to rounding, the last one wins (counts are preserved in CSV)
         puncta_labels[ys, xs] = ids
 
-        # OPTIONAL: Make spots larger for visibility without merging them
-        # uses watershed-like expansion so IDs don't overwrite each other
-        from skimage.segmentation import expand_labels
-        puncta_labels = expand_labels(puncta_labels, distance=1)
 
     return {
         'puncta_labels': puncta_labels,  # Return the explicit label map
