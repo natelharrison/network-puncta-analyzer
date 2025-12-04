@@ -10,8 +10,8 @@ import pipeline_utils
 # --- CONFIGURATION ---
 # Steger's Algorithm Parameters
 RIDGE_WIDTHS = [1, 2, 3, 4]  # Range of line widths to detect (in pixels)
-RIDGE_CONTRAST_LOW =20  # Lower threshold for hysteresis
-RIDGE_CONTRAST_HIGH = 60  # Upper threshold for hysteresis
+RIDGE_CONTRAST_LOW =25  # Lower threshold for hysteresis
+RIDGE_CONTRAST_HIGH = 75  # Upper threshold for hysteresis
 
 # Reconstruction Limits
 MAX_FILAMENT_THICKNESS = 3  # Cap to prevent artifacts from becoming blobs
