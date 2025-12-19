@@ -1,202 +1,116 @@
 ﻿# Network & Puncta Quantification Pipeline
 
-A high-throughput pipeline for quantifying **filamentous networks** and **puncta** in 2D fluorescence microscopy images.  
-All metrics are **normalized to internal WT controls per trial**, enabling robust cross-experiment comparisons.
-
-The pipeline is designed for batch processing, reproducibility, and QC-driven analysis, with optional interactive tissue masking via **Micro-SAM**.
+A high-throughput pipeline for quantifying filamentous networks and puncta in 2D fluorescence microscopy images.
+Metrics are normalized to internal WT controls per trial. Includes optional Micro-SAM-assisted masking and batch QC.
 
 ---
+## Methodology
+- Networks: Steger ridge detector (via `ridge_detector`) with configurable widths/contrast; masked to non-zero pixels in `chan1_masks`.
+- Puncta: Laplacian of Gaussian blob detector (`skimage.feature.blob_log`) with configurable sigmas/threshold/overlap; masked to non-zero pixels in `chan1_masks`.
+- Normalization: Within each comparison group, metrics are divided by the WT mean; mapping of WT/Mutant comes from folder names or filenames.
+- Reproducibility: Run parameters and environment details are recorded in `analysis_runs/<run_id>/run_meta.json`.
 
+---
 ## Features
-
-- End-to-end processing from raw OIB files to quantified CSVs
-- Micro-SAM–assisted tissue masking (CPU or GPU)
-- Parallelized batch analysis
-- Automated QC overlays and montages
-- Per-image and per-trial summary statistics
+- End-to-end from OIB → MIPs → masks → metrics/plots
+- Micro-SAM tissue masking (CPU or GPU)
+- Parallelized batch processing
+- Per-image stats plus combined CSVs and plots with run metadata
 
 ---
-
 ## Installation
-
-### 1. Clone the repository
-```text
+1) Clone/download and enter the repo
+```
 git clone <repo_url>
 cd abboud_project
 ```
-
-### 2. Create the Conda environment
-```text
+2) Create env
+```
 conda env create -f environment.yml
 ```
-
-### 3. Activate the environment
-```text
+3) Activate
+```
 conda activate mucin_env
 ```
-
-### 4. (Optional) Install Micro-SAM support
-
-Required only if you plan to generate tissue masks interactively.
-
-**CPU**
-```text
-conda install -c conda-forge micro_sam
+4) (Optional) Micro-SAM + GPU
 ```
-
-**GPU**
-```text
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+conda install -c conda-forge micro_sam           # CPU
+conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia  # GPU (optional)
 ```
 
 ---
-
 ## Data Organization
 
-### Raw data (input)
-
-Original `.oib` files are organized by trial:
-
-```text
+### Raw OIBs
+```
 <Project_Root>/
-├── Trial_01/    # original .oib files
-├── Trial_02/
-└── Trial_03/
+├─ Trial_01/    # original .oib files
+├─ Trial_02/
+└─ Trial_03/
 ```
 
----
-
-### Analysis-ready layout
-
-After conversion, each trial should follow this structure:
-
-```text
-<Project_Root>/
-├── Trial_01/
-│   └── MIPs/
-│       ├── chan0/          # secondary channel (unused)
-│       ├── chan1/          # primary channel TIFs
-│       └── chan1_masks/    # tissue masks (manual or Micro-SAM)
-├── Trial_02/
-│   └── MIPs/...
-└── Trial_03/
-    └── MIPs/...
+### Analysis-ready layout (per-genotype folders under each trial)
 ```
-
+<Project_Root>/
+├─ Trial_01/
+│  ├─ Rosa/               # WT example
+│  │  ├─ MIPs/
+│  │  │  ├─ chan0/
+│  │  │  ├─ chan1/
+│  │  │  └─ chan1_masks/
+│  │  └─ analysis_results/
+│  └─ V1/                 # Mutant example
+│     ├─ MIPs/
+│     │  ├─ chan0/
+│     │  ├─ chan1/
+│     │  └─ chan1_masks/
+│     └─ analysis_results/
+└─ Trial_02/
+   └─ ...
+```
 Notes:
-- Mask filenames **must exactly match** the corresponding images in `chan1`
-- Masks may be binary or instance-labeled
-- Any non-zero pixel is treated as tissue
+- Mask filenames must exactly match the images in `chan1`
+- Masks may be binary or instance-labeled; any non-zero pixel is treated as tissue
 
 ---
-
 ## Workflow
 
-### Step 1 — Convert OIB files to max-projection TIFs (optional)
-
-If starting from raw `.oib` files:
-
-```text
-python src/convert_oibs.py "<project_root>"
+### 1) Convert OIBs to max-projection TIFs (optional)
 ```
+python src/convert_oibs.py "<project_root>" --skip-existing
+```
+- Scans for `.oib` and writes max-projections to `MIPs/chan0` and `MIPs/chan1`.
+- `--skip-existing` avoids overwriting existing TIFs.
 
-This step:
-- Recursively scans for `.oib` files
-- Generates max-projection TIFs
-- Writes outputs to `MIPs/chan0` and `MIPs/chan1` per trial
+### 2) Create tissue masks with Micro-SAM in napari
+- Launch: `napari`
+- Plugins > Segment Anything for Microscopy > Image Series Annotator
+- Per genotype folder:
+  - Input: `<Project_Root>/Trial_X/<Genotype>/MIPs/chan1`
+  - Output: `<Project_Root>/Trial_X/<Genotype>/MIPs/chan1_masks`
+- Advanced: set Custom weights path to your SAM checkpoint (e.g., `sam_vit_b_01ec64.pth`), pick CPU/GPU model.
+- Annotate (boxes/points/scribbles), refine with paint/erase, save masks with matching filenames.
 
-Skip this step if MIPs already exist.
+### 3) Run automated analysis
+```
+python run_analysis.py "<project_root>" --cores 8 --run-id <optional_name>
+```
+- Finds every `MIPs/chan1/*.tif` (trial/genotype aware), checks for matching masks.
+- Writes per-image outputs to each genotype’s `analysis_results/`.
+- Writes combined stats/plots/metadata to `<project_root>/analysis_runs/<run_id>/` (timestamp if not set).
 
 ---
-
-### Step 2 — Generate tissue masks with Micro-SAM
-
-Masks are created interactively using napari.
-
-1. Launch napari from the active environment:
-```text
-napari
-```
-
-2. Open:
-```text
-Plugins > Segment Anything for Microscopy > Image Series Annotator
-```
-
-3. Configure per trial:
-- **Input folder**  
-  `<Project_Root>/Trial_X/MIPs/chan1`
-- **Output folder**  
-  `<Project_Root>/Trial_X/MIPs/chan1_masks`
-
-4. In **Advanced settings**:
-- Set **Custom weights path** to your SAM checkpoint  
-  (e.g. `sam_vit_b_01ec64.pth`)
-- Select a model appropriate for your CPU/GPU
-
-5. Annotate tissue using boxes, points, or scribbles  
-6. Refine masks with napari paint/erase tools as needed  
-7. Save masks to disk
-
----
-
-### Step 3 — Run automated analysis
-
-Execute the full analysis pipeline:
-
-```text
-python run_analysis.py "<project_root>" --cores 8
-```
-
-This step will:
-- Validate that all images have matching masks
-- Detect puncta and filamentous networks
-- Compile per-image and per-trial statistics
-- Generate QC overlays and summary plots
-
-Adjust `--cores` to control multiprocessing.
-
----
-
 ## Outputs
-
-Each trial produces an `analysis_results/` directory:
-
-```text
-analysis_results/
-├── network_binary/          # binary ridge/network masks
-├── network_overlay/         # QC overlays
-├── puncta_labels/           # labeled puncta detections
-├── quantification/
-│   ├── per_image_*.csv
-│   ├── DATA_Networks_Master.csv
-│   └── DATA_Puncta_Master.csv
-├── Montage_Network.png
-└── PLOT_Summary.png
-```
+- Per genotype `analysis_results/`:
+  - `network_binary/`, `network_overlay/`, `puncta_labels/`
+  - `quantification/` per-image CSVs
+- Project-level `analysis_runs/<run_id>/`:
+  - `DATA_Networks_Combined.csv`, `DATA_Puncta_Combined.csv`
+  - `PLOT_Per_Trial_Breakdown.png`, `PLOT_Global_Summary.png`
+  - `run_meta.json` (parameters, cores, platform, run id)
 
 ---
-
-## Notes & Best Practices
-
-- Ensure tissue masks fully cover valid regions to avoid biased normalization
-- Large images benefit from GPU-accelerated Micro-SAM
-- Inspect QC overlays to verify segmentation quality
-- WT normalization is performed **within each trial**, not globally
-
----
-
-## Citation
-
-If you use this pipeline in a publication, please cite the associated study and acknowledge Micro-SAM where applicable.
-
----
-
-## Extensions
-
-The pipeline is modular and can be extended to support:
-- Alternative network detectors
-- Additional per-cell or per-region metrics
-- 3D or time-series data
-
-Contact the maintainer for guidance.
+## Notes
+- WT/Mutant mapping: folder names (`Rosa`, `Rosa 1/2`, `BL6`, `V`, `V1`, `V2`) or filenames. To change mapping, edit `FOLDER_GENOTYPE_MAP` and `detect_strain_info` in `src/compile_stats.py`.
+- Normalization is within each comparison group; ensure WT controls exist per group.
+- Inspect QC overlays and montages to confirm masking and detections.

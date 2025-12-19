@@ -29,6 +29,8 @@ def convert_single_oib(image_path: Path):
 def main():
     parser = argparse.ArgumentParser(description="Step 1: Convert OIBs to Max-Z TIFs")
     parser.add_argument('dir', type=Path, help="Root folder containing .oib files")
+    parser.add_argument('--skip-existing', action='store_true',
+                        help="Skip conversion if output TIF already exists")
     args = parser.parse_args()
 
     oib_files = list(args.dir.rglob('*.oib'))
@@ -41,6 +43,16 @@ def main():
 
     for image_path in tqdm(oib_files, desc="Converting"):
         try:
+            # Check existence for chan0/chan1 outputs
+            skip = False
+            if args.skip_existing:
+                for i in range(2):
+                    save_path = image_path.parent / 'MIPs' / f'chan{i}' / f'MAX_chan{i}_{image_path.stem}.tif'
+                    if save_path.exists():
+                        skip = True
+                        break
+            if skip:
+                continue
             convert_single_oib(image_path)
         except Exception as e:
             print(f"Error converting {image_path.name}: {e}")

@@ -11,7 +11,7 @@ LOG_MIN_SIGMA = 1.5  # Min blob size
 LOG_MAX_SIGMA = 2.5  # Max blob size (Increased from 2)
 LOG_NUM_SIGMA = 5  # Steps (Increased for better sizing)
 LOG_THRESHOLD = 0.025  # Threshold (Stricter: 0.02 vs 0.002)
-LOG_OVERLAP = 1  # Allowed overlap fraction (tuned)
+LOG_OVERLAP = 0.9  # Allowed overlap fraction (deduplicate overlapping blobs)
 EDGE_MARGIN = 5  # Pixels to ignore near image borders to prevent edge artifacts
 
 
@@ -56,12 +56,13 @@ def analyze_puncta(image, mask):
         ys = np.clip(ys, 0, H - 1)
         xs = np.clip(xs, 0, W - 1)
 
-        is_background = mask[ys, xs] == 0
-        blobs = blobs[is_background]
+        # Keep detections inside tissue; mask is assumed non-zero for tissue pixels
+        in_tissue = mask[ys, xs] != 0
+        blobs = blobs[in_tissue]
 
     # 4. Metrics
     count = len(blobs)
-    bg_area = np.count_nonzero(mask == 0)
+    tissue_area = np.count_nonzero(mask != 0)
     avg_nnd = 0.0
 
     if count > 1:
@@ -73,8 +74,15 @@ def analyze_puncta(image, mask):
     stats = pd.DataFrame({
         'puncta_count': [count],
         'avg_nnd': [avg_nnd],
-        'puncta_density': [count / bg_area if bg_area > 0 else 0],
-        'search_area': [bg_area]
+        'puncta_density': [count / tissue_area if tissue_area > 0 else 0],
+        'search_area': [tissue_area],
+        # Parameter metadata
+        'log_min_sigma': [LOG_MIN_SIGMA],
+        'log_max_sigma': [LOG_MAX_SIGMA],
+        'log_num_sigma': [LOG_NUM_SIGMA],
+        'log_threshold': [LOG_THRESHOLD],
+        'log_overlap': [LOG_OVERLAP],
+        'edge_margin': [EDGE_MARGIN],
     })
 
     # 5. Generate Label Mask

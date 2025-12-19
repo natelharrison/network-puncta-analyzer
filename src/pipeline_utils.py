@@ -100,7 +100,15 @@ def _worker(args):
     results = func(image, mask)
     if not results: return
 
-    results_root = img_path.parents[2] / "analysis_results"
+    # Place outputs next to the folder containing MIPs (works for Trial/MIPs and Trial/Genotype/MIPs)
+    results_root = None
+    for parent in img_path.parents:
+        if parent.name == "MIPs":
+            # Write alongside the owner of MIPs (genotype folder if present, otherwise trial)
+            results_root = parent.parent / "analysis_results"
+            break
+    if results_root is None:
+        return
 
     for key, data in results.items():
         if hasattr(data, 'to_csv'):
@@ -128,4 +136,6 @@ def run_pipeline(tasks, process_func, cores=8):
     pool_args = [(t, process_func) for t in tasks]
 
     with Pool(processes=int(cores)) as pool:
-        list(tqdm(pool.imap_unordered(_worker, pool_args), total=len(tasks)))
+        for _ in tqdm(pool.imap_unordered(_worker, pool_args), total=len(tasks)):
+            # tqdm consumes the iterator; results are written inside _worker
+            pass

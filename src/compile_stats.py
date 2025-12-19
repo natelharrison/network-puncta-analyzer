@@ -3,11 +3,19 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import matplotlib
+matplotlib.use("Agg")  # headless backend for script usage
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
 from tqdm import tqdm
 import pipeline_utils
 import traceback
+import json
+import sys
+import platform
+from datetime import datetime
+import network_detector
+import puncta_detector
 
 
 def get_genotype(filename):
@@ -23,6 +31,19 @@ def detect_strain_info(filename):
     if 'v1' in clean:     return 'V1', 'Mutant'
     if 'v2' in clean:     return 'V2', 'Mutant'
     return 'Unknown', 'Unknown'
+
+
+FOLDER_GENOTYPE_MAP = {
+    # Wildtype keys
+    'rosa': ('Rosa', 'WT'),
+    'rosa 1': ('Rosa 1', 'WT'),
+    'rosa 2': ('Rosa 2', 'WT'),
+    'bl6': ('BL6', 'WT'),
+    # Mutant keys
+    'v': ('V', 'Mutant'),
+    'v1': ('V1', 'Mutant'),
+    'v2': ('V2', 'Mutant'),
+}
 
 
 def assign_comparison_group(trial_name, strain):
@@ -59,33 +80,62 @@ def load_and_combine(data_dir, suffix):
 
     dfs = []
     for p in files:
-        # --- FIX: Skip Summary/Combined Files ---
         if p.name.startswith("DATA_") or p.name.startswith("SUMMARY_") or "Combined" in p.name:
             continue
-        # ----------------------------------------
 
         try:
             df = pd.read_csv(p)
 
-            # Robust trial detection (handles diff folder depths)
-            # Assumes: .../TrialName/Genotype/Image...
-            try:
-                trial_name = p.parents[2].name
-            except IndexError:
-                trial_name = "Unknown"
+            # Determine trial/genotype from filesystem
+            analysis_root = None
+            for parent in p.parents:
+                if parent.name == "analysis_results":
+                    analysis_root = parent
+                    break
+
+            trial_name = "Unknown"
+            genotype_folder = "NA"
+            if analysis_root:
+                mips_owner = analysis_root.parent  # could be Trial or Genotype
+                has_mips_here = (mips_owner / "MIPs").exists()
+                has_mips_parent = mips_owner.parent and (mips_owner.parent / "MIPs").exists()
+
+                if has_mips_here and not has_mips_parent:
+                    # Genotype-level: Trial/Genotype/{MIPs,analysis_results}
+                    trial_name = mips_owner.parent.name if mips_owner.parent else "Unknown"
+                    genotype_folder = mips_owner.name
+                elif has_mips_here and has_mips_parent:
+                    # Uncommon nested case: prefer parent as trial
+                    trial_name = mips_owner.parent.name
+                    genotype_folder = mips_owner.name
+                elif not has_mips_here and has_mips_parent:
+                    # Trial-level: Trial/{MIPs,analysis_results}
+                    trial_name = mips_owner.name
+                    genotype_folder = "NA"
+                else:
+                    # Fallback: treat analysis_results parent as trial
+                    trial_name = mips_owner.name
+                    genotype_folder = "NA"
 
             image_name = p.name.replace(f"_{suffix}", "")
             strain, genotype = detect_strain_info(p.name)
+
+            # Override strain/genotype if folder provides a mapping
+            folder_key = genotype_folder.lower()
+            if folder_key in FOLDER_GENOTYPE_MAP:
+                strain, genotype = FOLDER_GENOTYPE_MAP[folder_key]
+
             group_name = assign_comparison_group(trial_name, strain)
 
             df.insert(0, 'image_name', image_name)
             df['trial'] = trial_name
+            df['folder_group'] = genotype_folder
             df['strain'] = strain
             df['genotype'] = genotype
             df['comparison_group'] = group_name
             dfs.append(df)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[!] Skipped file {p}: {e}")
 
     return pd.concat(dfs, ignore_index=True) if dfs else None
 
@@ -114,8 +164,9 @@ def plot_metric_polished(ax, data, x_col, y_col, hue_col, title, ylabel, show_le
         data=data,
         x=x_col, y=y_col, hue=hue_col,
         palette=colors, order=order, hue_order=hue_order,
-        dodge=0.4, join=False, capsize=0.1,
-        errorbar='se', markers="D", scale=0.8,
+        dodge=0.4, capsize=0.1,
+        errorbar='se', markers="D", linestyles="",
+        markersize=6,
         ax=ax, legend=False, zorder=10
     )
 
@@ -185,7 +236,7 @@ def make_nice_plots(net_df, puncta_df, output_dir):
     sns.despine(offset=10, trim=True)
     plt.tight_layout()
     plt.savefig(output_dir / "PLOT_Global_Summary.png", dpi=300)
-    print(f"[✓] Plots Saved.")
+    print("[OK] Plots saved.")
 
 
 def save_network_montages(data_dir: Path):
@@ -201,7 +252,7 @@ def save_network_montages(data_dir: Path):
         output_path = overlay_dir.parent / "Montage_Network.png"
         try:
             pipeline_utils.create_montage(trial_dir.name, images, output_path)
-            print(f"[✓] {trial_dir.name}: {output_path.name}")
+            print(f"[OK] {trial_dir.name}: {output_path.name}")
         except Exception:
             print(f"[!] Failed montage for {trial_dir.name}")
             traceback.print_exc()
@@ -210,13 +261,18 @@ def save_network_montages(data_dir: Path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("data_dir", type=Path)
+    parser.add_argument("--run-id", type=str, default=None,
+                        help="Run identifier (default: timestamp)")
+    parser.add_argument("--cores", type=str, default=None,
+                        help="Cores used (for metadata only)")
     args = parser.parse_args()
 
-    # SAFETY: Delete old combined files to ensure clean slate
-    for f in args.data_dir.glob("DATA_*.csv"): f.unlink()
-    for f in args.data_dir.glob("SUMMARY_*.csv"): f.unlink()
+    run_id = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = args.data_dir / "analysis_runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"--- Compiling Stats & Cleaning Data in {args.data_dir} ---")
+    print(f"[i] Run ID: {run_id}")
 
     net_df = load_and_combine(args.data_dir, "network_stats.csv")
     puncta_df = load_and_combine(args.data_dir, "puncta_stats.csv")
@@ -230,7 +286,7 @@ def main():
 
         # Save
         cols_to_save = [c for c in net_df.columns if 'Unnamed' not in c]
-        net_df[cols_to_save].to_csv(args.data_dir / "DATA_Networks_Combined.csv", index=False)
+        net_df[cols_to_save].to_csv(run_dir / "DATA_Networks_Combined.csv", index=False)
 
     if puncta_df is not None:
         normalize_by_group(puncta_df, 'puncta_count')
@@ -240,10 +296,36 @@ def main():
             puncta_df.rename(columns={'tissue_area': 'mask_area'}, inplace=True)
 
         cols_to_save = [c for c in puncta_df.columns if 'Unnamed' not in c]
-        puncta_df[cols_to_save].to_csv(args.data_dir / "DATA_Puncta_Combined.csv", index=False)
+        puncta_df[cols_to_save].to_csv(run_dir / "DATA_Puncta_Combined.csv", index=False)
+
+    # Save run metadata
+    meta = {
+        "run_id": run_id,
+        "data_dir": str(args.data_dir.resolve()),
+        "timestamp": datetime.now().isoformat(),
+        "python_version": sys.version.split()[0],
+        "platform": platform.platform(),
+        "cores": args.cores,
+        "network_params": {
+            "ridge_widths": network_detector.RIDGE_WIDTHS,
+            "ridge_low_contrast": network_detector.RIDGE_CONTRAST_LOW,
+            "ridge_high_contrast": network_detector.RIDGE_CONTRAST_HIGH,
+            "width_scale_factor": network_detector.WIDTH_SCALE_FACTOR,
+        },
+        "puncta_params": {
+            "log_min_sigma": puncta_detector.LOG_MIN_SIGMA,
+            "log_max_sigma": puncta_detector.LOG_MAX_SIGMA,
+            "log_num_sigma": puncta_detector.LOG_NUM_SIGMA,
+            "log_threshold": puncta_detector.LOG_THRESHOLD,
+            "log_overlap": puncta_detector.LOG_OVERLAP,
+            "edge_margin": puncta_detector.EDGE_MARGIN,
+        },
+    }
+    with open(run_dir / "run_meta.json", "w") as f:
+        json.dump(meta, f, indent=2)
 
     save_network_montages(args.data_dir)
-    make_nice_plots(net_df, puncta_df, args.data_dir)
+    make_nice_plots(net_df, puncta_df, run_dir)
 
 
 if __name__ == "__main__":

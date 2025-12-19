@@ -102,7 +102,12 @@ def analyze_networks(image, mask):
         'total_ridge_pixels': [total_pixels],
         'structure_index': [structure_index],
         'object_count': [len(np.unique(mask)) - 1],
-        'tissue_area': [tissue_area]
+        'tissue_area': [tissue_area],
+        # Parameter metadata
+        'ridge_widths': [RIDGE_WIDTHS],
+        'ridge_low_contrast': [RIDGE_CONTRAST_LOW],
+        'ridge_high_contrast': [RIDGE_CONTRAST_HIGH],
+        'width_scale_factor': [WIDTH_SCALE_FACTOR],
     })
 
     return {

@@ -2,6 +2,7 @@ import subprocess
 import sys
 import argparse
 from pathlib import Path
+from datetime import datetime
 
 
 def validate_inputs(data_dir: Path) -> bool:
@@ -32,14 +33,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("dir", type=Path)
     parser.add_argument("--cores", type=str, default="8")
+    parser.add_argument("--run-id", type=str, default=None,
+                        help="Optional run identifier; defaults to timestamp")
     args = parser.parse_args()
 
     if not validate_inputs(args.dir): sys.exit(1)
     path_str = str(args.dir)
 
+    run_id = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+
     run_step("puncta_detector.py", [path_str, "--cores", args.cores])
     run_step("network_detector.py", [path_str, "--cores", args.cores])
-    run_step("compile_stats.py", [path_str])  # Now includes montage generation
+    run_step("compile_stats.py", [path_str, "--run-id", run_id, "--cores", args.cores])  # Now includes montage generation
 
     print(f"\n[+] Pipeline Complete.")
 
